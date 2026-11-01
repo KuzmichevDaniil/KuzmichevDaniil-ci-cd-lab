@@ -1,0 +1,35 @@
+name: Pages
+
+on:
+  push:
+    branches: [main] #запускается только при пуше в main
+
+#права для автоматического токена этого workflow
+permissions:
+  contents: read #можно читать код репо
+  pages: write #можно публиковать на GitHub Pages
+  id-token: write #можно получить временный токен
+
+jobs: #список задач (jobов)
+  deploy:
+    runs-on: ubuntu-latest #на какой виртуальной машине запустить
+    environment: #окружение github-pages
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} #откуда брать адрес сайта
+    steps:
+      - uses: actions/checkout@v4 #копирование репозитория на виртуалку с помошью готового действия от GitHub
+
+      #создаем папку lab-ci-cd и копируем туда index.html
+      - name: Prepare site
+        run: |
+          mkdir lab-ci-cd
+          cp index.html lab-ci-cd/
+
+      - uses: actions/upload-pages-artifact@v3 #упаковываем содержимое папки в архив
+        with:
+          path: lab-ci-cd #такая конструкция означает: упакуй именно эту папку
+
+      #берет архив и публикует на GitHub Pages
+      - name: Deploy to Pages
+        id: deployment #внутреннеe имя шага: на него ссылется строка 17
+        uses: actions/deploy-pages@v4
