@@ -33,3 +33,7 @@ jobs: #список задач (jobов)
       - name: Deploy to Pages
         id: deployment #внутреннеe имя шага: на него ссылется строка 17
         uses: actions/deploy-pages@v4
+
+      #печатает адрес в лог
+      - name: Show site URL
+        run: echo "Site URL - ${{ steps.deployment.outputs.page_url }}"
