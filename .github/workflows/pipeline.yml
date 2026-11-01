@@ -1,0 +1,46 @@
+name: Pipeline
+
+on: push #Pipeline срабатывает, когда новые коммиты попадут в репозиторий на GitHub
+
+jobs: #список задач (jobов)
+  ci:
+    runs-on: ubuntu-latest #на какой виртуальной машине запустить
+    steps: #шаги которые должен сделать ci
+      - uses: actions/checkout@v4 #копирование репозитория на виртуалку с помошью готового действия от GitHub
+
+      - name: Lint HTML #подпись шага в логе
+        run: npx --yes htmlhint index.html #команда, выполняющаяся в терминале (проверка HTML)
+
+      - name: Smoke test container #подпись шага в логе
+        if: ${{ !cancelled() }} #выполнять, даже если предыдущий шаг упал (кроме ручной отмены)
+        run: |
+          set -x
+          docker build -t labipr:ci .
+          docker run -d -p 8080:80 labipr:ci
+          sleep 3
+          curl -s http://localhost:8080 | grep "</h1>"
+          echo OK
+
+  release:
+    needs: ci #подождать, пока выполнится ci
+    if: github.ref == 'refs/heads/main' #если push был сделан в ветку main
+    runs-on: ubuntu-latest #на какой виртуалке запустить
+    permissions: #права для токена
+      contents: read #можно читать код репо
+      packages: write #можно записывать в Packages, то есть публиковать образ в GHCR
+    steps: #шаги выполнения
+      - uses: actions/checkout@v4 #копирование репозитория на виртуалку с помошью готового действия от GitHub
+
+      - uses: docker/login-action@v3 #вход в реестр образов GitHub (GHCR)
+        with: #блок параметров для действия
+          registry: ghcr.io #адрес реестра
+          username: ${{ github.actor }} #мой ник, ник который сделал push
+          password: ${{ secrets.GITHUB_TOKEN }} #временный пароль, который генерит сам GitHub 
+
+      - name: Build and push #подпись шага в логе (собирает образ и отправляет в реестр)
+        uses: docker/build-push-action@v6 #готовое действие (docker build и docker push)
+        with: #блок параметров для действия
+          context: . #собрать из корня репозитория
+          push: true #опубликовать образ
+          tags: ghcr.io/kuzmichevdaniil/kuzmichevdaniil-ci-cd-lab:latest
+          labels: org.opencontainers.image.source=https://github.com/KuzmichevDaniil/KuzmichevDaniil-ci-cd-lab #метка, привязывающая пакет к репо
